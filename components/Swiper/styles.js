@@ -32,7 +32,9 @@ export const styles = StyleSheet.create({
         shadowRadius: 16,
         overflow: 'hidden'
     },
-    image: { width: '100%', height: '100%', borderRadius: 28 },
+    
+    image: { width: '100%', height: '100%',objectFit: 'contain' , borderRadius: 28 },
+    
     overlay: { position: 'absolute', top: 60, borderWidth: 4, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
     keep: { left: 30, borderColor: '#4ade80', transform: [{ rotate: '-15deg' }] },
     delete: { right: 30, borderColor: '#f87171', transform: [{ rotate: '15deg' }] },
@@ -75,5 +77,5 @@ export const styles = StyleSheet.create({
         borderRadius: 24,
     },
     deleteBtnSmall: {},
-    keepBtnSmall: {}
+    keepBtnSmall: {},
 });

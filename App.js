@@ -63,6 +63,18 @@ export default function App() {
     setSelectedAlbum(null);
   };
 
+  const handleAlbumChange = (albumId, deletedCount) => {
+    setAlbums(prevAlbums => prevAlbums.map(album => {
+      if (album.id === albumId) {
+        return {
+          ...album,
+          assetCount: Math.max(0, album.assetCount - deletedCount)
+        };
+      }
+      return album;
+    }));
+  };
+
   if (!selectedAlbum) {
     return (
       <AlbumPicker
@@ -77,6 +89,7 @@ export default function App() {
     <Swiper
       album={selectedAlbum}
       onBack={handleBack}
+      onAlbumUpdate={handleAlbumChange}
     />
   );
 }

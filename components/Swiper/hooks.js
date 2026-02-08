@@ -22,16 +22,17 @@ export const useAlbumAssets = (album) => {
             setFinished(false);
 
             const { assets: fetched } = await MediaLibrary.getAssetsAsync({
-                first: 1000,
+                first: 50000,
                 album: album.id,
-                sortBy: [MediaLibrary.SortBy.creationTime]
+                sortBy: [MediaLibrary.SortBy.creationTime],
+                mediaType: [MediaLibrary.MediaType.photo, MediaLibrary.MediaType.video]
             });
 
             if (fetched && fetched.length > 0) {
                 setAssets(fetched);
                 totalAssetsRef.current = fetched.length;
 
-                const initial = new Array(TOTAL_SLOTS).fill(null).map((_, i) => fetched[i] ? { id: fetched[i].id, uri: fetched[i].uri } : null);
+                const initial = new Array(TOTAL_SLOTS).fill(null).map((_, i) => fetched[i] ? { id: fetched[i].id, uri: fetched[i].uri, absoluteIndex: i } : null);
                 setSlots(initial);
 
                 dataIndexRef.current = Math.min(fetched.length, TOTAL_SLOTS) - 1;
@@ -58,7 +59,7 @@ export const useAlbumAssets = (album) => {
         const asset = assets[nextData];
         setSlots(prev => {
             const n = [...prev];
-            n[slotIndex] = { id: asset.id, uri: asset.uri };
+            n[slotIndex] = { id: asset.id, uri: asset.uri, absoluteIndex: nextData };
             return n;
         });
     };
@@ -72,7 +73,7 @@ export const useAlbumAssets = (album) => {
         if (asset) {
             setSlots(prev => {
                 const n = [...prev];
-                n[slotIndex] = { id: asset.id, uri: asset.uri };
+                n[slotIndex] = { id: asset.id, uri: asset.uri, absoluteIndex: assetIndex };
                 return n;
             });
 
@@ -83,18 +84,19 @@ export const useAlbumAssets = (album) => {
 
     const [deletedAssets, setDeletedAssets] = useState([]);
 
-    const addToDeletedBuffer = (uri) => {
-        setDeletedAssets(prev => [...prev, uri]);
+    const addToDeletedBuffer = (asset) => {
+        setDeletedAssets(prev => [...prev, asset]);
     };
 
     const removeAssetFromDeleteBuffer = (assetId) => {
-        setDeletedAssets(prev => prev.filter(id => id !== assetId));
+        setDeletedAssets(prev => prev.filter(item => item.id !== assetId));
     };
 
     const deleteBufferedAssets = async () => {
         if (deletedAssets.length === 0) return;
         try {
-            await MediaLibrary.deleteAssetsAsync(deletedAssets);
+            const idsToDelete = deletedAssets.map(a => a.id);
+            await MediaLibrary.deleteAssetsAsync(idsToDelete);
             setDeletedAssets([]); // Clear buffer on success
             return true;
         } catch (error) {
@@ -144,9 +146,12 @@ export const useSwipeGesture = ({
     // ideally the orchestrator (Swiper) handles resetting or we expose a reset method.
     // For now, let's expose swipedCount so the consumer can reset it if needed.
 
+    const [currentIndex, setCurrentIndex] = useState(1);
+
     const onSwipeEndJS = (translateX, velocityX, currentSlot) => {
         const currentSwiped = swipedCount.value + 1;
         swipedCount.value = currentSwiped;
+        runOnJS(setCurrentIndex)(currentSwiped + 1);
 
         // Record direction: 1 for Keep (Right), -1 for Delete (Left)
         // If translateX is 0 (unlikely but possible), default to 1
@@ -208,11 +213,6 @@ export const useSwipeGesture = ({
             const slot = activeSlot.value;
             if (Math.abs(e.translationX) > SCREEN_WIDTH * 0.22) {
                 runOnJS(onSwipeEndJS)(e.translationX, e.velocityX, slot);
-                if (Math.sign(e.translationX) > 0) {
-                    console.log('KEEP', slot);
-                } else {
-                    console.log('DELETE', slot);
-                }
             } else {
                 translations[slot].value = withSpring(0, SNAPPY_SPRING);
             }
@@ -223,6 +223,7 @@ export const useSwipeGesture = ({
 
         const currentSwiped = swipedCount.value - 1;
         swipedCount.value = currentSwiped;
+        setCurrentIndex(currentSwiped + 1);
         const assetIndex = currentSwiped;
 
         const prevSlot = (activeSlot.value - 1 + TOTAL_SLOTS) % TOTAL_SLOTS;
@@ -258,6 +259,7 @@ export const useSwipeGesture = ({
         translations,
         gesture,
         undoGesture,
-        programmaticSwipe
+        programmaticSwipe,
+        currentIndex // Export state
     };
 };

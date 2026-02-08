@@ -5,7 +5,7 @@ import { StyleSheet, Text } from 'react-native';
 import { SLOTS, TOTAL_SLOTS, SNAPPY_SPRING, SCREEN_WIDTH as width } from '../Swiper/constants';
 import { styles } from '../Swiper/styles';
 
-export default function CardSlot({ index, activeSlot, translation, topTranslation, uri }) {
+export default function CardSlot({ index, activeSlot, translation, topTranslation, uri, absoluteIndex, total }) {
     const style = useAnimatedStyle(() => {
         const currentActive = activeSlot.value;
         const diff = (index - currentActive + TOTAL_SLOTS) % TOTAL_SLOTS;
@@ -50,7 +50,7 @@ export default function CardSlot({ index, activeSlot, translation, topTranslatio
                 key={uri}
                 source={uri}
                 style={styles.image}
-                contentFit="cover"
+                contentFit="contain"
                 cachePolicy="memory-disk"
             />
             <Animated.View style={[styles.overlay, styles.keep, keepStyle]}>

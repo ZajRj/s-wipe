@@ -1,16 +1,16 @@
-
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import CardSlot from '../CardSlot';
+import ReviewScreen from '../ReviewScreen';
 import { styles } from './styles';
 import { SLOTS } from './constants';
 import { useAlbumAssets, useSwipeGesture } from './hooks';
 
-export default function Swiper({ album, onBack }) {
+export default function Swiper({ album, onBack, onAlbumUpdate }) {
     const {
         assets,
         loading,
@@ -26,13 +26,16 @@ export default function Swiper({ album, onBack }) {
         restoreSlot
     } = useAlbumAssets(album);
 
+    const [showReview, setShowReview] = useState(false);
+
     const {
         activeSlot,
         swipedCount,
         translations,
         gesture,
         undoGesture,
-        programmaticSwipe
+        programmaticSwipe,
+        currentIndex
     } = useSwipeGesture({
         totalAssetsRef,
         setFinished,
@@ -40,7 +43,7 @@ export default function Swiper({ album, onBack }) {
         onAction: (type, slotIndex) => {
             if (type === 'DELETE') {
                 const slot = slots[slotIndex];
-                if (slot?.id) addToDeletedBuffer(slot.id);
+                if (slot?.id) addToDeletedBuffer({ id: slot.id, uri: slot.uri });
             }
         }
     });
@@ -51,9 +54,17 @@ export default function Swiper({ album, onBack }) {
         translations.forEach(t => t.value = 0);
     }, [album]);
 
-    const handleDelete = async () => {
+    const handleReviewToggle = () => {
+        setShowReview(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        const count = deletedAssets.length;
         const success = await deleteBufferedAssets();
         if (success) {
+            if (onAlbumUpdate) {
+                onAlbumUpdate(album.id, count);
+            }
             onBack();
         }
     };
@@ -76,15 +87,29 @@ export default function Swiper({ album, onBack }) {
 
     if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#fff" /></View>;
 
+    if (showReview) {
+        return (
+            <ReviewScreen 
+                assets={deletedAssets}
+                onConfirm={handleConfirmDelete}
+                onCancel={() => setShowReview(false)}
+                onRestore={removeAssetFromDeleteBuffer}
+            />
+        );
+    }
+
     return (
         <GestureHandlerRootView style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={onBack} style={styles.backBtn}><Text style={styles.backBtnText}>✕</Text></TouchableOpacity>
-                <Text style={styles.albumTitle} numberOfLines={1}>{album.title}</Text>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Text style={styles.albumTitle} numberOfLines={1}>{album.title}</Text>
+                    <Text style={{ color: '#888', fontSize: 12, marginTop: 2 }}>{Math.min(currentIndex, assets.length)} of {assets.length}</Text>
+                </View>
 
                 <TouchableOpacity
                     style={styles.trashContainer}
-                    onPress={handleDelete}
+                    onPress={handleReviewToggle}
                     disabled={deletedAssets.length === 0}
                 >
                     <MaterialCommunityIcons
@@ -106,8 +131,8 @@ export default function Swiper({ album, onBack }) {
                         <Text style={styles.finishedText}>All Swiped! ✨</Text>
 
                         {deletedAssets.length > 0 ? (
-                            <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-                                <Text style={styles.deleteBtnText}>Delete {deletedAssets.length} Photos</Text>
+                            <TouchableOpacity style={styles.deleteBtn} onPress={handleReviewToggle}>
+                                <Text style={styles.deleteBtnText}>Review {deletedAssets.length} Photos</Text>
                             </TouchableOpacity>
                         ) : (
                             <Text style={{ color: '#888', marginBottom: 20 }}>No photos to delete.</Text>
@@ -129,6 +154,8 @@ export default function Swiper({ album, onBack }) {
                                         translation={translations[i]}
                                         topTranslation={translations}
                                         uri={slots[i]?.uri}
+                                        absoluteIndex={slots[i]?.absoluteIndex || 0}
+                                        total={assets.length}
                                     />
                                 ))}
                             </Animated.View>
